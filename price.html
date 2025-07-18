@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Acsport 料金シミュレーター</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --primary-gradient: linear-gradient(135deg, #4ade80, #facc15);
+    --primary-color: #22c55e;
+    --light-primary-focus: #dcfce7;
+    --border-color: #e5e7eb;
+    --text-primary: #111827;
+    --text-secondary: #6b7280;
+    --bg-color: #f3f4f6;
+    --card-bg: #ffffff;
+    --danger-color: #ef4444;
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    font-family: 'Inter', 'Noto Sans JP', sans-serif;
+    margin: 0;
+    padding: 1.5em;
+    background: var(--bg-color);
+    color: var(--text-primary);
+  }
+  .container { max-width: 900px; margin: 0 auto; }
+  .main-header {
+    font-size: 2.2em;
+    font-weight: 700;
+    margin: 0;
+    margin-bottom: 1em;
+    background: var(--primary-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1em;
+  }
+  .config-area {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    background-color: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.07);
+    padding: 0.75em;
+    gap: 1em;
+  }
+  .page-count-wrapper { display: flex; align-items: center; gap: 0.75em; padding: 0 0.5em; }
+  .page-count-wrapper label { font-weight: 600; font-size: 0.9em; }
+  #page-count-input { width: 70px; padding: 0.4em; font-size: 0.9em; text-align: center; border: 1px solid var(--border-color); border-radius: 8px; transition: border-color 0.2s, box-shadow 0.2s; }
+  #page-count-input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px var(--light-primary-focus); }
+  .tier-selector { display: flex; justify-content: center; align-items: center; background-color: #f3f4f6; border-radius: 8px; padding: 0.25em; }
+  .tier-selector label { cursor: pointer; font-size: 0.85em; font-weight: 600; padding: 0.5em 1em; border-radius: 7px; transition: all 0.2s ease-in-out; display: flex; align-items: center; gap: 0.5em; color: var(--text-secondary); }
+  .tier-selector input[type="radio"] { display: none; }
+  .tier-selector input[type="radio"]:checked + label { background-image: var(--primary-gradient); color: #fff; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1); }
+  .export-button { display: inline-flex; align-items: center; gap: 0.5em; padding: 0.6em 1.2em; border: none; background-image: var(--primary-gradient); color: #fff; font-weight: 600; font-size: 0.9em; border-radius: 10px; cursor: pointer; transition: all 0.2s ease-in-out; box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1); }
+  .export-button:hover { opacity: 0.9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1); }
+  .item-list-card { background-color: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.07); overflow: hidden; }
+  .list-header, .item-row { display: flex; align-items: center; padding: 0 1.25em; }
+  .list-header { background-color: #f9fafb; padding-top: 0.6em; padding-bottom: 0.6em; font-size: 0.75em; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-color); }
+  .item-row { padding-top: 0.7em; padding-bottom: 0.7em; border-bottom: 1px solid var(--border-color); }
+  .item-list-card > div:last-child { border-bottom: none; }
+  .item-name { flex: 1; font-weight: 500; font-size: 0.9em; }
+  .item-price, .item-subtotal { width: 120px; text-align: right; font-size: 0.9em; }
+  .item-quantity { width: 100px; display: flex; justify-content: center; }
+  .item-price, .item-subtotal { font-weight: 500; }
+  .item-subtotal { font-weight: 600; color: var(--primary-color); }
+  .quantity-input { width: 65px; padding: 0.4em; font-size: 0.9em; text-align: center; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--card-bg); transition: border-color 0.2s, box-shadow 0.2s; }
+  .quantity-input[readonly] { background-color: #f3f4f6; cursor: not-allowed; }
+  .summary-section { display: flex; justify-content: flex-end; margin-top: 1em; }
+  .summary-box { width: 100%; max-width: 420px; background-color: var(--card-bg); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.07); padding: 0.75em; }
+  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 0.75em; }
+  .summary-row.total-row { border-top: 1px solid var(--border-color); }
+  .summary-row .label { font-weight: 600; color: var(--text-secondary); font-size: 0.9em; }
+  .discount-row .label { color: var(--danger-color); }
+  .discount-input-wrapper { display: flex; align-items: center; gap: 0.5em; color: var(--danger-color); font-weight: 600; }
+  .discount-input { width: 90px; padding: 0.4em; font-size: 0.9em; text-align: right; border: 1px solid #fca5a5; border-radius: 8px; }
+  .total-row .label { font-size: 1em; color: var(--text-primary); }
+  #total-amount { font-size: 1.8em; font-weight: 700; background: var(--primary-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1 class="main-header">Acsport 料金シミュレーター</h1>
+  
+  <div class="top-bar">
+    <div class="config-area">
+      <div class="page-count-wrapper">
+          <label for="page-count-input">総ページ数</label>
+          <input type="number" id="page-count-input" value="10" min="1">
+      </div>
+      <div class="tier-selector">
+        <input type="radio" id="tier-complex" name="price-tier" value="complex">
+        <label for="tier-complex">🎨 複雑</label>
+        <input type="radio" id="tier-standard" name="price-tier" value="standard" checked>
+        <label for="tier-standard">💻 標準</label>
+        <input type="radio" id="tier-template" name="price-tier" value="template">
+        <label for="tier-template">📋 テンプレ</label>
+      </div>
+    </div>
+    <button id="export-button" class="export-button">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L6.354 8.146a.5.5 0 1 0-.708.708z"/></svg>
+        Excel出力
+    </button>
+  </div>
+
+  <div class="item-list-card">
+    <div class="list-header">
+        <div class="item-name">項目</div>
+        <div class="item-price">単価</div>
+        <div class="item-quantity">数量</div>
+        <div class="item-subtotal">小計</div>
+    </div>
+    <div id="item-list-body">
+    </div>
+  </div>
+
+  <div class="summary-section">
+    <div class="summary-box">
+      <div class="summary-row discount-row">
+          <span class="label">特別割引</span>
+          <div class="discount-input-wrapper">
+            <span>-</span>
+            <input type="number" id="discount-amount" class="discount-input" value="0" min="0" oninput="updateAndCalculate()">
+          </div>
+      </div>
+      <div class="summary-row total-row">
+          <span class="label">合計金額</span>
+          <span id="total-amount">¥0</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- データ設定 ---
+  const standardPriceItems = [
+    { id: 'kihon', name: '基本設定・企画構成', standardPrice: 150000, quantity: 1, auto: false },
+    { id: 'direction', name: '制作ディレクション', standardPrice: 50000, quantity: 1, auto: false },
+    { id: 'topDesign', name: 'TOPデザイン作成', standardPrice: 150000, quantity: 1, auto: false },
+    { id: 'topWireframe', name: 'TOPページフレーム作成', standardPrice: 30000, quantity: 1, auto: false },
+    { id: 'subDesign', name: '下層オリジナルデザイン', standardPrice: 100000, quantity: 9, auto: false },
+    { id: 'subWireframe', name: '下層ワイヤーフレーム作成', standardPrice: 7500, quantity: 9, auto: true },
+    { id: 'codingTop', name: 'コーディング(TOP)', standardPrice: 150000, quantity: 1, auto: false },
+    { id: 'codingSub', name: 'コーディング(下層)', standardPrice: 30000, quantity: 9, auto: true },
+    { id: 'responsive', name: 'レシポンシブ（スマホ）対応', standardPrice: 150000, quantity: 1, auto: false },
+    { id: 'system', name: 'システム構築', standardPrice: 50000, quantity: 1, auto: false },
+    { id: 'check', name: '構築負荷チェック', standardPrice: 50000, quantity: 1, auto: false },
+    { id: 'seo', name: '内部SEO・表記ゆれチェック', standardPrice: 50000, quantity: 1, auto: false }
+  ];
+  
+  function roundToNiceNumber(num) {
+    if (num >= 10000) { return Math.round(num / 1000) * 1000; } 
+    else { return Math.round(num / 500) * 500; }
+  }
+
+  const calculationItems = standardPriceItems.map(item => ({
+    ...item,
+    prices: {
+      complex: roundToNiceNumber(item.standardPrice * 1.25),
+      standard: item.standardPrice,
+      template: roundToNiceNumber(item.standardPrice * 0.25)
+    }
+  }));
+
+  const listBody = document.getElementById('item-list-body');
+  const totalAmountCell = document.getElementById('total-amount');
+  const discountInput = document.getElementById('discount-amount');
+  const pageCountInput = document.getElementById('page-count-input');
+  const exportButton = document.getElementById('export-button');
+
+  function formatCurrency(num) { return `¥${num.toLocaleString()}`; }
+  function getCurrentTier() { return document.querySelector('input[name="price-tier"]:checked').value; }
+  
+  function updatePageCounts() {
+      const totalPages = parseInt(pageCountInput.value, 10) || 1;
+      const subPages = totalPages > 1 ? totalPages - 1 : 0;
+      calculationItems.forEach(item => {
+          if (item.auto) {
+              const qtyInput = document.getElementById(`qty-${item.id}`);
+              if(qtyInput) qtyInput.value = subPages;
+          }
+      });
+  }
+
+  function updateAndCalculate() {
+    updatePageCounts();
+    const currentTier = getCurrentTier();
+    let subTotal = 0;
+    calculationItems.forEach(item => {
+      const unitPriceCell = document.getElementById(`price-${item.id}`);
+      const currentPrice = item.prices[currentTier];
+      if(unitPriceCell) unitPriceCell.textContent = formatCurrency(currentPrice);
+
+      const quantityInput = document.getElementById(`qty-${item.id}`);
+      const quantity = parseInt(quantityInput.value) || 0;
+      const itemTotal = currentPrice * quantity;
+      subTotal += itemTotal;
+
+      const subtotalCell = document.getElementById(`subtotal-${item.id}`);
+      if(subtotalCell) subtotalCell.textContent = formatCurrency(itemTotal);
+    });
+
+    const discountAmount = parseInt(discountInput.value) || 0;
+    const grandTotal = subTotal - discountAmount;
+    totalAmountCell.textContent = formatCurrency(grandTotal);
+  }
+
+  function createItemRows() {
+    let html = '';
+    calculationItems.forEach(item => {
+      html += `
+        <div class="item-row">
+            <div class="item-name">${item.name}</div>
+            <div class="item-price" id="price-${item.id}"></div>
+            <div class="item-quantity">
+                <input type="number" id="qty-${item.id}" class="quantity-input" value="${item.quantity}" min="0" oninput="updateAndCalculate()" ${item.auto ? 'readonly' : ''}>
+            </div>
+            <div class="item-subtotal" id="subtotal-${item.id}"></div>
+        </div>
+      `;
+    });
+    listBody.innerHTML = html;
+  }
+  
+  function exportToExcel() {
+    const tier = getCurrentTier();
+    const tierText = document.querySelector(`label[for="tier-${tier}"]`).textContent.trim().replace(/\s/g, '');
+    let subTotal = 0;
+    const data = [['項目', '単価', '数量', '小計'],];
+    calculationItems.forEach(item => {
+        const price = item.prices[tier];
+        const quantity = parseInt(document.getElementById(`qty-${item.id}`).value) || 0;
+        const itemTotal = price * quantity;
+        subTotal += itemTotal;
+        data.push([item.name, price, quantity, itemTotal]);
+    });
+    const discount = parseInt(discountInput.value) || 0;
+    const total = subTotal - discount;
+    data.push([]); 
+    data.push(['料金プラン', tierText]);
+    data.push(['', '', '小計', subTotal]);
+    data.push(['', '', '特別割引', -discount]);
+    data.push(['', '', '合計金額', total]);
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    ws['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 10 }, { wch: 15 }];
+    const moneyFormat = '"¥"#,##0';
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    for (let R = 0; R <= range.e.r; ++R) {
+        const cell_b = ws[XLSX.utils.encode_cell({c: 1, r: R})];
+        if (cell_b && cell_b.t === 'n') cell_b.z = moneyFormat;
+        const cell_d = ws[XLSX.utils.encode_cell({c: 3, r: R})];
+        if (cell_d && cell_d.t === 'n') cell_d.z = moneyFormat;
+    }
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '見積書');
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}${(today.getMonth()+1).toString().padStart(2, '0')}${today.getDate().toString().padStart(2, '0')}`;
+    XLSX.writeFile(wb, `見積書_${dateStr}.xlsx`);
+  }
+
+  // --- イベントリスナー ---
+  document.querySelectorAll('input[name="price-tier"]').forEach(radio => radio.addEventListener('change', updateAndCalculate));
+  pageCountInput.addEventListener('input', updateAndCalculate);
+  exportButton.addEventListener('click', exportToExcel);
+
+  window.onload = () => {
+    createItemRows();
+    updateAndCalculate();
+  };
+</script>
+
+</body>
+</html>
